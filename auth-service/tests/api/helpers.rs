@@ -1,4 +1,5 @@
 use auth_service::Application;
+use uuid::Uuid;
 
 pub struct TestApp {
     pub address: String,
@@ -32,13 +33,17 @@ impl TestApp {
             .expect("Failed to execute request.")
     }
 
-    pub async fn get_sign_up(&self) -> reqwest::Response {
+    pub async fn post_sign_up<Body>(&self, body: &Body) -> reqwest::Response
+    where Body: serde::Serialize,
+    {
         self.http_client
             .post(&format!("{}/signup", &self.address))
+            .json(body)
             .send()
             .await
             .expect("Failed to execute request.")
     }
+
     pub async fn logout(&self) -> reqwest::Response {
         self.http_client
             .post(&format!("{}/logout", &self.address))
@@ -46,6 +51,7 @@ impl TestApp {
             .await
             .expect("Failed to execute request.")
     }
+
     pub async fn login(&self) -> reqwest::Response {
         self.http_client
             .post(&format!("{}/login", &self.address))
@@ -53,6 +59,7 @@ impl TestApp {
             .await
             .expect("Failed to execute request.")
     }
+
     pub async fn verify_2fa(&self) -> reqwest::Response {
         self.http_client
             .post(&format!("{}/verify_2fa", &self.address))
@@ -60,6 +67,7 @@ impl TestApp {
             .await
             .expect("Failed to execute request.")
     }
+
     pub async fn varify_token(&self) -> reqwest::Response {
         self.http_client
             .post(&format!("{}/varify_token", &self.address))
@@ -67,4 +75,8 @@ impl TestApp {
             .await
             .expect("Failed to execute request.")
     }
+}
+
+pub fn get_random_email() -> String {
+    format!("{}@example.com", Uuid::new_v4())
 }
