@@ -5,6 +5,12 @@ use tokio::net::TcpListener;
 use tower_http::services::{ServeDir, ServeFile};
 
 pub mod routes;
+pub mod domain;
+pub mod services;
+pub mod app_state;
+
+
+pub use app_state::{AppState, UserStore};
 
 // This struct encapsulates our application-related logic.
 pub struct Application {
@@ -15,7 +21,7 @@ pub struct Application {
 }
 
 impl Application {
-    pub async fn build(address: &str) -> Result<Self, Box<dyn Error>> {
+    pub async fn build(app_state: AppState,address: &str) -> Result<Self, Box<dyn Error>> {
         let asset_dir =
             ServeDir::new("assets").not_found_service(ServeFile::new("assets/index.html"));
 
@@ -25,7 +31,8 @@ impl Application {
             .route("/logout", post(routes::logout))
             .route("/verify_2fa", post(routes::verify_2fa))
             .route("/varify_token", post(routes::varify_token))
-            .route("/signup", post(routes::signup));
+            .route("/signup", post(routes::signup))
+            .with_state(app_state);
 
         let listener = TcpListener::bind(address).await?;
         let address = listener.local_addr()?.to_string();
