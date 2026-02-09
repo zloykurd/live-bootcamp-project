@@ -1,42 +1,38 @@
+use crate::domain::error::AuthApiError;
 use crate::domain::User;
 use crate::services::hashmap_user_store::UserStoreError;
 use crate::AppState;
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use email_address::*;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 pub async fn signup(
     State(state): State<AppState>,
     Json(request): Json<SignupRequest>,
-) -> impl IntoResponse {
-    let mut read_store = state.user_store.write().await;
+) -> Result<impl IntoResponse, AuthApiError> {
+    if EmailAddress::from_str(request.email.as_str()).is_err() {
+        return Err(AuthApiError::InvalidCredentials);
+    }
 
+    if request.password.len() < 8 {
+        return Err(AuthApiError::InvalidCredentials);
+    }
+
+    let mut store = state.user_store.write().await;
     let user = User::new(request.email, request.password, request.requires_2fa);
-    match read_store.add_user(user) {
+    match store.add_user(user) {
         Ok(_) => {
             let response = Json(SignupResponse {
                 message: "User created successfully!".to_string(),
             });
-            (StatusCode::CREATED, response)
+            Ok((StatusCode::CREATED, response))
         }
-        Err(error) => {
-            let response = Json(SignupResponse {
-                message: format!(
-                    "{}",
-                    match error {
-                        UserStoreError::UserAlreadyExists => {
-                            "User already exists"
-                        }
-                        UserStoreError::UserNotFound => {
-                            "User not found"
-                        }
-                        UserStoreError::InvalidCredentials => {
-                            "Invalid credentials"
-                        }
-                    }
-                ),
-            });
-            (StatusCode::UNPROCESSABLE_ENTITY, response)
-        }
+        Err(error) => match error {
+            UserStoreError::UserAlreadyExists => Err(AuthApiError::UserAlreadyExists),
+            UserStoreError::InvalidCredentials => Err(AuthApiError::InvalidCredentials),
+            _ => Err(AuthApiError::InternalError),
+        },
     }
 }
 
