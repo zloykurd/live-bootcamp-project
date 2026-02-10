@@ -1,15 +1,7 @@
+use crate::domain::data_stores::{UserStore, UserStoreError};
+use crate::domain::User;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-
-use crate::domain::User;
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum UserStoreError {
-    UserAlreadyExists,
-    UserNotFound,
-    InvalidCredentials,
-}
-
 
 #[derive(Default)]
 pub struct HashMapUserStore {
@@ -17,7 +9,17 @@ pub struct HashMapUserStore {
 }
 
 impl HashMapUserStore {
-    pub fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
+    pub fn get_user(&self, email: &str) -> Result<&User, UserStoreError> {
+        match self.users.get(email) {
+            None => Err(UserStoreError::UserNotFound),
+            Some(value) => Ok(value),
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl UserStore for HashMapUserStore {
+    async fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
         let email = user.email().to_string();
 
         match self.users.entry(email) {
@@ -29,14 +31,7 @@ impl HashMapUserStore {
         }
     }
 
-    pub fn get_user(&self, email: &str) -> Result<&User, UserStoreError> {
-        match self.users.get(email) {
-            None => Err(UserStoreError::UserNotFound),
-            Some(value) => Ok(value),
-        }
-    }
-
-    pub fn validate_user(&self, email: &str, password: &str) -> Result<(), UserStoreError> {
+    async fn validate_user(&self, email: &str, password: &str) -> Result<(), UserStoreError> {
         let user = self.get_user(email)?;
         if user.validate(password) {
             Ok(())
@@ -50,9 +45,10 @@ impl HashMapUserStore {
 mod tests {
     use super::User;
     use super::{HashMapUserStore, UserStoreError};
+    use crate::domain::data_stores::UserStore;
 
-    #[test]
-    fn should_add_user_successfully() {
+    #[tokio::test]
+    async fn should_add_user_successfully() {
         let mut store = HashMapUserStore::default();
         let cases = vec![
             User::new("john0".to_string(), "john".to_string(), true),
@@ -60,54 +56,59 @@ mod tests {
         ];
 
         for case in cases {
-            let result = store.add_user(case);
+            let result = store.add_user(case).await;
             assert!(result.is_ok());
         }
     }
 
-    #[test]
-    fn should_return_error_when_user_exists() {
+    #[tokio::test]
+    async fn should_return_error_when_user_exists() {
         let mut store = HashMapUserStore::default();
 
         assert!(store
             .add_user(User::new("john".into(), "p".into(), true))
+            .await
             .is_ok());
 
-        let err = store.add_user(User::new("john".into(), "p2".into(), false));
+        let err = store
+            .add_user(User::new("john".into(), "p2".into(), false))
+            .await;
         assert_eq!(err, Err(UserStoreError::UserAlreadyExists));
     }
 
-    #[test]
-    fn should_return_error_when_user_does_not_exists() {
+    #[tokio::test]
+    async fn should_return_error_when_user_does_not_exists() {
         let mut store = HashMapUserStore::default();
 
         assert_eq!(store.get_user("john"), Err(UserStoreError::UserNotFound));
 
         assert!(store
             .add_user(User::new("john".into(), "p".into(), true))
+            .await
             .is_ok());
 
         assert!(store.get_user("john").is_ok());
     }
 
-    #[test]
-    fn should_return_error_when_user_invalid_credentials() {
+    #[tokio::test]
+    async fn should_return_error_when_user_invalid_credentials() {
         let mut store = HashMapUserStore::default();
 
         assert_eq!(store.get_user("john"), Err(UserStoreError::UserNotFound));
 
         assert!(store
             .add_user(User::new("john".into(), "password".into(), true))
+            .await
             .is_ok());
 
-        assert!(store.validate_user("john", "password").is_ok());
+        assert!(store.validate_user("john", "password").await.is_ok());
 
         assert_eq!(
-            store.validate_user("joh", "pass"),
+            store.validate_user("joh", "pass").await,
             Err(UserStoreError::UserNotFound)
         );
         assert_eq!(
-            store.validate_user("john", "pass"),
+            store.validate_user("john", "pass").await,
             Err(UserStoreError::InvalidCredentials)
         );
     }

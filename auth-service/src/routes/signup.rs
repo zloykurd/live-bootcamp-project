@@ -1,6 +1,6 @@
+use crate::domain::data_stores::UserStoreError;
 use crate::domain::error::AuthApiError;
 use crate::domain::User;
-use crate::services::hashmap_user_store::UserStoreError;
 use crate::AppState;
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use email_address::*;
@@ -21,7 +21,7 @@ pub async fn signup(
 
     let mut store = state.user_store.write().await;
     let user = User::new(request.email, request.password, request.requires_2fa);
-    match store.add_user(user) {
+    match store.add_user(user).await {
         Ok(_) => {
             let response = Json(SignupResponse {
                 message: "User created successfully!".to_string(),

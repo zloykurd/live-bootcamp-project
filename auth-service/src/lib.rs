@@ -13,7 +13,7 @@ pub mod routes;
 pub mod services;
 
 use crate::domain::error::AuthApiError;
-pub use app_state::{AppState, UserStore};
+pub use app_state::{AppState};
 
 // This struct encapsulates our application-related logic.
 pub struct Application {
