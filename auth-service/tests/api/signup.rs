@@ -7,7 +7,7 @@ async fn sign_up_returns_200() {
     let response = app
         .post_sign_up(&serde_json::json!({
             "email": random_email,
-            "password": "password123",
+            "password": "passwordA123",
             "requires2FA": false
         }))
         .await;
@@ -67,7 +67,7 @@ async fn should_return_201_if_valid_input() {
     let app = TestApp::new().await;
     let test_cases = [serde_json::json!({
         "email": random_email,
-           "password": "password123",
+           "password": "passwordA123",
         "requires2FA": true
     })];
 
